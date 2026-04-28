@@ -16,6 +16,7 @@ const FOLDER_ID = process.env.FOLDER_ID;
 // ---------------------------------------------------
 
 async function uploadToDrive(buffer, fileName) {
+    console.log('📤 Iniciando subida a Google Drive...');
     const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET);
     oauth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
     const driveService = google.drive({ version: 'v3', auth: oauth2Client });
@@ -25,13 +26,23 @@ async function uploadToDrive(buffer, fileName) {
 
     try {
         const response = await driveService.files.create({
-            requestBody: { name: fileName, parents: [FOLDER_ID] },
-            media: { mimeType: 'image/jpeg', body: bufferStream },
+            requestBody: { 
+                name: fileName, 
+                parents: [FOLDER_ID] 
+            },
+            media: { 
+                mimeType: 'image/jpeg', 
+                body: bufferStream 
+            },
             fields: 'id',
         });
-        console.log('✅ ¡FUNCIONÓ! Captura real subida a Drive. ID:', response.data.id);
+        console.log('✅ ¡ARCHIVO GUARDADO EN DRIVE! ID:', response.data.id);
     } catch (err) {
-        console.error('❌ Error en Drive API:', err.message);
+        console.error('❌ ERROR DETALLADO EN DRIVE API:');
+        console.error('Mensaje:', err.message);
+        if (err.response) {
+            console.error('Data:', err.response.data);
+        }
     }
 }
 
