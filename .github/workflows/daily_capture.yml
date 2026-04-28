@@ -27,6 +27,7 @@ jobs:
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
           FOLDER_ID: ${{ secrets.FOLDER_ID }}
+          MIS_COOKIES: ${{ secrets.MIS_COOKIES }}
         # Corremos el script dentro de xvfb-run
         run: xvfb-run --server-args="-screen 0 1920x1080x24" node index.js
         timeout-minutes: 10 # Ripley es pesada, le damos tiempo

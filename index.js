@@ -1,109 +1,136 @@
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-puppeteer.use(StealthPlugin());
-
 const { google } = require('googleapis');
 const stream = require('stream');
 
-// --- TUS DATOS (Siguen igual, leídos de secrets) ---
+// Activamos el plugin de sigilo
+puppeteer.use(StealthPlugin());
+
+// --- VARIABLES DE ENTORNO (Configuradas en GitHub Secrets) ---
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REFRESH_TOKEN = process.env.REFRESH_TOKEN;
 const FOLDER_ID = process.env.FOLDER_ID;
-// ---------------------------------------------------
+const MIS_COOKIES = process.env.MIS_COOKIES; 
+// -----------------------------------------------------------
 
 async function uploadToDrive(buffer, fileName) {
-    console.log('📤 Iniciando subida a Drive...');
+    console.log('📤 Iniciando comunicación con Google Drive API...');
     const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET);
     oauth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
     const driveService = google.drive({ version: 'v3', auth: oauth2Client });
+
     const bufferStream = new stream.PassThrough();
     bufferStream.end(buffer);
+
     try {
         const response = await driveService.files.create({
-            requestBody: { name: fileName, parents: [FOLDER_ID] },
-            media: { mimeType: 'image/jpeg', body: bufferStream },
+            requestBody: { 
+                name: fileName, 
+                parents: [FOLDER_ID] 
+            },
+            media: { 
+                mimeType: 'image/jpeg', 
+                body: bufferStream 
+            },
             fields: 'id',
         });
-        console.log('✅ ¡IMAGEN SUBIDA! ID:', response.data.id);
+        console.log('✅ ¡ÉXITO! Archivo guardado en Drive. ID:', response.data.id);
     } catch (err) {
-        console.error('❌ Error en Drive:', err.message);
+        console.error('❌ Error crítico al subir a Drive:', err.message);
     }
 }
 
 async function start() {
-    console.log('🚀 Iniciando Puppeteer con Técnicas Anti-Cloudflare...');
+    console.log('🚀 Iniciando Puppeteer con Stealth y Xvfb...');
     
-    // TÉCNICA 1: Headless false en GitHub (requiere xvfb en el .yml)
-    // Esto hace que el navegador se renderice "de verdad"
     const browser = await puppeteer.launch({ 
-        headless: false, 
+        headless: false, // Importante: Xvfb se encarga de la pantalla virtual
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
             '--window-size=1920,1080',
-            '--disable-blink-features=AutomationControlled' // Sigilo extra
+            '--disable-blink-features=AutomationControlled'
         ] 
     });
 
     try {
         const page = await browser.newPage();
         await page.setViewport({ width: 1920, height: 1080 });
-        
-        // TÉCNICA 2: User-Agent real y reciente
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
 
-        // TÉCNICA 3: Limpiar caché y cookies
-        console.log('🧹 Limpiando caché y cookies...');
-        const client = await page.target().createCDPSession();
-        await client.send('Network.clearBrowserCookies');
-        await client.send('Network.clearBrowserCache');
+        // --- GESTIÓN DE COOKIES (INYECCIÓN) ---
+        if (MIS_COOKIES && MIS_COOKIES !== "undefined" && MIS_COOKIES !== "") {
+            try {
+                console.log('🍪 Intentando inyectar cookies de sesión...');
+                const cookies = JSON.parse(MIS_COOKIES);
+                await page.setCookie(...cookies);
+                console.log('✅ Cookies cargadas correctamente.');
+            } catch (e) {
+                console.error('⚠️ Error al parsear el JSON de cookies. Verifica el formato en Secrets.');
+            }
+        } else {
+            console.log('ℹ️ No se detectaron cookies (MIS_COOKIES está vacío). Continuando navegación limpia...');
+        }
 
-        console.log('📸 Navegando a Ripley...');
-        
-        const cookies = JSON.parse(process.env.MIS_COOKIES);
-        await page.setCookie(...cookies);
-        // networkidle0 es más estricto, asegura que no haya red activa
+        console.log('📸 Navegando a Ripley.com.pe...');
         await page.goto('https://simple.ripley.com.pe/', { 
-            waitUntil: 'networkidle0', 
+            waitUntil: 'networkidle2', 
             timeout: 120000 
         });
 
-        // TÉCNICA 4: Espera Humana y movimiento de mouse
-        console.log('⏳ Esperando 10 segundos para Turnstile pass...');
-        await new Promise(resolve => setTimeout(resolve, 10000));
-        
-        console.log('🖱️ Simulando movimiento de mouse aleatorio...');
-        await page.mouse.move(Math.random() * 500, Math.random() * 500);
-        await page.mouse.move(Math.random() * 1000, Math.random() * 800);
+        // Espera humana inicial para engañar a Cloudflare
+        console.log('⏳ Esperando renderizado inicial (10s)...');
+        await new Promise(r => setTimeout(r, 10000));
 
-        // Verificación si seguimos atrapados
-        const content = await page.content();
-        if (content.includes('Verify you are human')) {
-            console.error('❌ Cloudflare sigue bloqueando.');
-            // Opcional: tomar una captura del error para depurar
-            const errorBuffer = await page.screenshot();
-            await uploadToDrive(errorBuffer, 'Error_Cloudflare.png');
-            return;
+        // Verificamos si estamos bloqueados
+        const html = await page.content();
+        if (html.includes("Verify you are human") || html.includes("Cloudflare")) {
+            console.log('⚠️ Advertencia: Se detectó pantalla de verificación. Intentando esperar un poco más...');
+            await new Promise(r => setTimeout(r, 15000));
         }
 
-        // Scroll lento (ya lo tienes, no lo incluyo para abreviar)
-        console.log('📜 Haciendo scroll...');
-        // ... (tu lógica de scroll aquí) ...
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Espera tras scroll
+        // --- SCROLL INTELIGENTE ---
+        console.log('📜 Ejecutando scroll para cargar productos...');
+        await page.evaluate(async () => {
+            await new Promise((resolve) => {
+                let totalHeight = 0;
+                let distance = 400;
+                let timer = setInterval(() => {
+                    let scrollHeight = document.body.scrollHeight;
+                    window.scrollBy(0, distance);
+                    totalHeight += distance;
+                    if (totalHeight >= scrollHeight) {
+                        clearInterval(timer);
+                        resolve();
+                    }
+                }, 200);
+            });
+        });
 
-        console.log('🖼️ Generando captura...');
-        const buffer = await page.screenshot({ fullPage: true, type: 'jpeg', quality: 70 });
-        const fileName = `Ripley_Final_${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
+        // Volvemos arriba para la captura estética
+        await page.evaluate(() => window.scrollTo(0, 0));
+        console.log('⏳ Espera final post-scroll...');
+        await new Promise(r => setTimeout(r, 5000));
 
-        console.log('📤 Llamando a Drive...');
+        console.log('🖼️ Generando buffer de imagen...');
+        const buffer = await page.screenshot({ 
+            fullPage: true, 
+            type: 'jpeg', 
+            quality: 70 
+        });
+
+        const fileName = `Ripley_Auto_${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
+        
+        // --- SUBIDA A DRIVE ---
         await uploadToDrive(buffer, fileName);
 
     } catch (error) {
-        console.error('❌ ERROR EN EL FLUJO:', error.message);
+        console.error('❌ ERROR DURANTE LA EJECUCIÓN:', error.message);
     } finally {
         await browser.close();
-        console.log('👋 Fin.');
+        console.log('👋 Navegador cerrado. Proceso finalizado.');
     }
 }
 
