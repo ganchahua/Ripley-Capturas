@@ -1,0 +1,29 @@
+name: Ripley Daily Capture
+on:
+  schedule:
+    # 08:00 AM Perú es 13:00 UTC (8 + 5 = 13)
+    - cron: '0 13 * * *'
+  workflow_dispatch: # Esto permite ejecutarlo manualmente para probar
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del codigo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Ejecutar script de captura
+        env:
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+          FOLDER_ID: ${{ secrets.FOLDER_ID }}
+        run: node index.js
