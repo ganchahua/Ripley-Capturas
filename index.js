@@ -6,7 +6,6 @@ const stream = require('stream');
 
 puppeteer.use(StealthPlugin());
 
-// Configuración GCS (vía protocolo S3) basada en tu S3 Browser
 const s3Client = new S3Client({
     endpoint: "https://storage.googleapis.com",
     region: "auto",
@@ -26,12 +25,12 @@ async function uploadToDrive(buffer, fileName) {
             requestBody: { name: fileName, parents: [process.env.FOLDER_ID] },
             media: { mimeType: 'image/jpeg', body: bufferStream }
         });
-        console.log(`✅ Subido a Drive: ${fileName}`);
+        console.log(`✅ Drive: ${fileName}`);
     } catch (e) { console.error('❌ Error Drive:', e.message); }
 }
 
 async function start() {
-    console.log('🚀 Iniciando bypass de red...');
+    console.log('🚀 Iniciando navegación estable...');
     const browser = await puppeteer.launch({ 
         headless: false,
         args: [
@@ -44,36 +43,34 @@ async function start() {
     });
 
     const page = await browser.newPage();
-    
-    // Capturador de errores para evitar el fallo de "Not attached to an active page"
     page.on('error', err => console.log('⚠️ Error de página:', err.message));
 
     try {
-        // Headers de Brave
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
         
-        // 1. Inyectar Cookies
         if (process.env.MIS_COOKIES) {
             const cookies = process.env.MIS_COOKIES.split(';').map(pair => {
                 const [name, ...value] = pair.trim().split('=');
-                return { name, value: value.join('='), domain: '.ripley.com.pe' };
+                return { name, value: value.join('='), domain: '.ripley.com.pe', path: '/' };
             });
             await page.setCookie(...cookies);
         }
 
-        // 2. Puente vía Google Storage
+        // Usamos la ruta de tu GCS como puente
         const bridgeUrl = "https://storage.googleapis.com/home.ripley.com.pe/minisitios/App/index.html";
         await page.goto(bridgeUrl, { waitUntil: 'networkidle2' });
 
-        // 3. Navegación a Ripley
         console.log('🏠 Cargando Ripley...');
         await page.setExtraHTTPHeaders({ 'Referer': bridgeUrl });
         
-        // 'commit' hace que no espere a trackers que disparan el ERR_BLOCKED_BY_CLIENT
-        await page.goto('https://simple.ripley.com.pe/home', { waitUntil: 'commit', timeout: 90000 });
+        // Cambiado a 'domcontentloaded' para máxima compatibilidad
+        await page.goto('https://www.ripley.com.pe/', { 
+            waitUntil: 'domcontentloaded', 
+            timeout: 90000 
+        });
 
-        console.log('⏳ Esperando renderizado (25s)...');
-        await new Promise(r => setTimeout(r, 25000));
+        console.log('⏳ Esperando renderizado final (20s)...');
+        await new Promise(r => setTimeout(r, 20000));
 
         if (!page.isClosed()) {
             const buffer = await page.screenshot({ fullPage: true, type: 'jpeg', quality: 75 });
@@ -89,7 +86,7 @@ async function start() {
                 Key: `debug/error_gh_${Date.now()}.jpg`,
                 Body: errBuf
             });
-            await s3Client.send(command);
+            await s3Client.send(command).catch(e => console.log("S3 Error:", e.message));
         }
     } finally {
         await browser.close();

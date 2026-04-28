@@ -1,13 +1,14 @@
-name: Ripley Daily Capture
+name: Ripley Daily Capture (GCS Bridge)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Permite ejecutarlo manualmente para pruebas
   schedule:
-    - cron: '0 13 * * *'
+    - cron: '0 13 * * *' # Se ejecuta a las 8:00 AM hora Perú (13:00 UTC)
 
 jobs:
   capture:
     runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
@@ -17,22 +18,44 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Instalar Chrome y Dependencias
+      - name: Instalar Google Chrome
         run: |
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
-          npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth googleapis @aws-sdk/client-s3
 
-      - name: Ejecutar Captura
+      - name: Instalar Dependencias
+        # Instalamos versiones específicas para evitar el error de "Unknown value" 
+        # y asegurar que @aws-sdk sea detectado correctamente.
+        run: |
+          npm install puppeteer@22.6.0 puppeteer-extra puppeteer-extra-plugin-stealth googleapis @aws-sdk/client-s3
+
+      - name: Ejecutar Captura con Pantalla Virtual (Xvfb)
         env:
+          # Credenciales Google Drive
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
           FOLDER_ID: ${{ secrets.FOLDER_ID }}
+          
+          # Datos de Sesión Corporativa
           MIS_COOKIES: ${{ secrets.MIS_COOKIES }}
+          
+          # Credenciales Google Cloud Storage (vía S3 Browser)
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_BUCKET_NAME: "home.ripley.com.pe"
+          AWS_REGION: "auto"
+          
         run: |
+          # Aumentamos la memoria compartida para el renderizado de la Home de Ripley
           export SHM_SIZE=2gb
-          # El '|| true' evita que el workflow falle si el script lanza una excepción controlada
+          
+          # xvfb-run simula un monitor físico para evitar que Cloudflare detecte el bot
+          # El '|| true' asegura que el log se guarde aunque el script encuentre un bloqueo
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" node index.js || true
+
+      - name: Limpieza de Procesos
+        if: always()
+        run: |
+          pkill chrome || true
+          pkill Xvfb || true
