@@ -60,6 +60,9 @@ async function start() {
         await client.send('Network.clearBrowserCache');
 
         console.log('📸 Navegando a Ripley...');
+        
+        const cookies = JSON.parse(process.env.MIS_COOKIES);
+        await page.setCookie(...cookies);
         // networkidle0 es más estricto, asegura que no haya red activa
         await page.goto('https://simple.ripley.com.pe/', { 
             waitUntil: 'networkidle0', 
