@@ -61,7 +61,7 @@ async function start() {
 
         console.log('📸 Navegando a Ripley...');
         // networkidle0 es más estricto, asegura que no haya red activa
-        await page.goto('https://www.ripley.com.pe', { 
+        await page.goto('https://simple.ripley.com.pe/', { 
             waitUntil: 'networkidle0', 
             timeout: 120000 
         });
