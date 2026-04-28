@@ -1,34 +1,30 @@
 name: Ripley Daily Capture
 
 on:
-  workflow_dispatch: # Activa el botón gris "Run workflow"
+  workflow_dispatch:
   schedule:
-    - cron: '0 13 * * *' # 8:00 AM hora de Lima aproximadamente
+    - cron: '0 13 * * *'
 
 jobs:
   capture:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout del repositorio
+      - name: Checkout código
         uses: actions/checkout@v4
 
-      - name: Instalación de Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Instalación de Chrome y Xvfb (Servidor Gráfico Virtual)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable xvfb
-          npm install
+      - name: Instalar dependencias
+        run: npm install  # Solo instalará axios y googleapis
 
-      - name: Ejecución de Captura con Pantalla Virtual
+      - name: Ejecutar Captura vía Proxy API
         env:
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
           FOLDER_ID: ${{ secrets.FOLDER_ID }}
-          MIS_COOKIES: ${{ secrets.MIS_COOKIES }}
-        # --auto-servernum evita conflictos si hay otros procesos gráficos
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" node index.js
+          SCRAPEDO_TOKEN: ${{ secrets.SCRAPEDO_TOKEN }} # <--- NUEVA VARIABLE
+        run: node index.js
