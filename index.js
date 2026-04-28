@@ -12,39 +12,38 @@ async function uploadToDrive(buffer, fileName) {
             requestBody: { name: fileName, parents: [process.env.FOLDER_ID] },
             media: { mimeType: 'image/jpeg', body: bufferStream }
         });
-        console.log('✅ ¡POR FIN! Captura guardada en Drive.');
+        console.log('✅ ¡Archivo enviado a Drive!');
     } catch (e) { console.error('❌ Error Drive:', e.message); }
 }
 
 async function start() {
-    console.log('🌐 Iniciando Bypass de Nivel 4 (Super Rendering)...');
+    console.log('🕵️ Iniciando infiltración silenciosa...');
     
-    const targetUrl = 'https://simple.ripley.com.pe';
+    const targetUrl = 'https://simple.ripley.com.pe/';
     const token = process.env.SCRAPEDO_TOKEN;
     
-    // CAMBIOS CLAVE:
-    // 1. superProxy=true: Usa IPs residenciales de altísima calidad.
-    // 2. geoCode=us: A veces Ripley confía más en IPs de EE.UU. que en Data Centers.
-    // 3. wait=15000: Damos 15 segundos para que el JS de Cloudflare se ejecute solo.
-    const apiUrl = `https://api.scrape.do/?token=${token}&url=${targetUrl}&screenshot=true&render=true&returnJSON=true&superProxy=true&geoCode=us&wait=15000`;
+    // CAMBIO DE ESTRATEGIA:
+    // Quitamos 'render=true' para evitar que salte el motor de detección de JS de Cloudflare
+    // Usamos 'superProxy' para que la IP sea 100% de hogar peruano o regional.
+    const apiUrl = `https://api.scrape.do/?token=${token}&url=${targetUrl}&screenshot=true&superProxy=true&returnJSON=true`;
 
     try {
-        console.log('📡 Solicitando enlace (esto tardará unos 30-40 segundos)...');
-        const initRes = await axios.get(apiUrl, { timeout: 200000 });
+        console.log('📡 Solicitando captura sin renderizado de JS activo...');
+        const initRes = await axios.get(apiUrl, { timeout: 120000 });
         
         const screenshotUrl = initRes.data.screenshotResult;
         
         if (screenshotUrl) {
-            console.log('🖼️ Descargando imagen real...');
+            console.log('🖼️ Captura generada. Descargando...');
             const finalRes = await axios.get(screenshotUrl, { responseType: 'arraybuffer' });
-            const fileName = `RIPLEY_HOME_FINAL_VENCIDO_${new Date().getTime()}.jpg`;
+            const fileName = `Ripley_Home_Silent_${new Date().getTime()}.jpg`;
             await uploadToDrive(Buffer.from(finalRes.data), fileName);
         } else {
-            console.error('❌ Cloudflare bloqueó el renderizado. Respuesta:', JSON.stringify(initRes.data).substring(0, 200));
+            console.error('❌ Cloudflare detectó el intento. Respuesta:', JSON.stringify(initRes.data).substring(0, 150));
         }
         
     } catch (error) {
-        console.error('❌ Error de red o API:', error.message);
+        console.error('❌ Fallo en la conexión:', error.message);
     }
 }
 
