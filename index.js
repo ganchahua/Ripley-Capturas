@@ -1,6 +1,6 @@
 const { google } = require('googleapis');
 const stream = require('stream');
-const axios = require('axios'); // Asegúrate de que esté en tu package.json
+const axios = require('axios');
 
 async function uploadToDrive(buffer, fileName) {
     const oauth2Client = new google.auth.OAuth2(process.env.CLIENT_ID, process.env.CLIENT_SECRET);
@@ -12,29 +12,37 @@ async function uploadToDrive(buffer, fileName) {
             requestBody: { name: fileName, parents: [process.env.FOLDER_ID] },
             media: { mimeType: 'image/jpeg', body: bufferStream }
         });
-        console.log('✅ Captura de la HOME (vía Proxy) enviada a Drive.');
+        console.log('✅ Archivo enviado a Drive.');
     } catch (e) { console.error('❌ Error Drive:', e.message); }
 }
 
 async function start() {
-    console.log('🌐 Iniciando captura mediante API de Proxy Residencial...');
+    console.log('🌐 Iniciando captura mediante Proxy...');
     
-    const targetUrl = 'https://simple.ripley.com.pe';
+    const targetUrl = 'https://simple.ripley.com.pe/home';
     const token = process.env.SCRAPEDO_TOKEN;
     
-    // Scrape.do tiene un endpoint que toma screenshots directamente
-    // Usamos render=true para que cargue el JS y las imágenes de Ripley
-    const apiUrl = `https://api.scrape.do/screenshot?token=${token}&url=${targetUrl}&render=true&width=1920&height=1080&fullpage=true`;
+    // Cambiamos a la URL de parámetros para mayor compatibilidad
+    // Añadimos &screenshot=true para que la API misma tome la foto
+    const apiUrl = `https://api.scrape.do/?token=${token}&url=${targetUrl}&screenshot=true&render=true`;
 
     try {
-        console.log('📸 Solicitando captura a la red residencial...');
-        const response = await axios.get(apiUrl, { responseType: 'arraybuffer' });
+        console.log('📸 Solicitando captura...');
+        const response = await axios.get(apiUrl, { 
+            responseType: 'arraybuffer',
+            timeout: 120000 // Damos 2 minutos porque Ripley es pesada
+        });
         
-        const fileName = `RIPLEY_HOME_PROXY_API_${new Date().getTime()}.jpg`;
+        const fileName = `RIPLEY_HOME_FINAL_${new Date().getTime()}.jpg`;
         await uploadToDrive(Buffer.from(response.data), fileName);
         
     } catch (error) {
-        console.error('❌ Error al obtener la captura:', error.message);
+        if (error.response) {
+            // Esto nos dirá por qué Scrape.do nos da 403
+            console.error('❌ Error 403 Detalle:', error.response.data.toString());
+        } else {
+            console.error('❌ Error:', error.message);
+        }
     }
 }
 
