@@ -3,7 +3,7 @@ name: Ripley Daily Capture
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 13 * * *'
+    - cron: '0 13 * * *' # 8:00 AM hora Perú aprox.
 
 jobs:
   capture:
@@ -17,14 +17,19 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Instalar dependencias
-        run: npm install  # Solo instalará axios y googleapis
+      - name: Instalar Google Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
 
-      - name: Ejecutar Captura vía Proxy API
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Ejecutar Captura con Pantalla Virtual
         env:
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
           FOLDER_ID: ${{ secrets.FOLDER_ID }}
-          SCRAPEDO_TOKEN: ${{ secrets.SCRAPEDO_TOKEN }} # <--- NUEVA VARIABLE
-        run: node index.js
+          MIS_COOKIES: ${{ secrets.MIS_COOKIES }} # <--- Tu JSON de la oficina
+        run: xvfb-run --auto-servernum node index.js
