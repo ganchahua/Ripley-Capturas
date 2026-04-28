@@ -1,44 +1,41 @@
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { google } = require('googleapis');
 const stream = require('stream');
 
 puppeteer.use(StealthPlugin());
 
-async function uploadToDrive(buffer, fileName) {
-    const oauth2Client = new google.auth.OAuth2(process.env.CLIENT_ID, process.env.CLIENT_SECRET);
-    oauth2Client.setCredentials({ refresh_token: process.env.REFRESH_TOKEN });
-    const driveService = google.drive({ version: 'v3', auth: oauth2Client });
-    const bufferStream = new stream.PassThrough().end(buffer);
-    try {
-        await driveService.files.create({
-            requestBody: { name: fileName, parents: [process.env.FOLDER_ID] },
-            media: { mimeType: 'image/jpeg', body: bufferStream }
-        });
-        console.log(`✅ Captura clonada enviada: ${fileName}`);
-    } catch (e) { console.error('❌ Error Drive:', e.message); }
-}
+// Configuración para Google Cloud Storage (vía protocolo S3)
+const s3Client = new S3Client({
+    endpoint: "https://storage.googleapis.com", // IMPORTANTE: Usamos el endpoint de tu captura
+    region: "auto",
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
+});
 
 async function start() {
-    console.log('🚀 Iniciando clonación de sesión corporativa...');
+    console.log('🚀 Iniciando bypass vía puente de Google Storage...');
     const browser = await puppeteer.launch({ 
-        headless: false, 
-        executablePath: '/usr/bin/google-chrome',
-        args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+        headless: false,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1920,1080'] 
     });
 
     const page = await browser.newPage();
     
     try {
-        // 1. Headers exactos de tu captura image_edb05f.png
+        // Headers de Brave (image_edb05f.png)
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
-        await page.setExtraHTTPHeaders({
-            'Accept-Language': 'es-ES,es;q=0.9',
-            'Sec-Ch-Ua': '"Brave";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
-            'Sec-Ch-Ua-Platform': '"Windows"'
-        });
+        
+        // 1. Visitar primero tu ruta de Ripley en Google Storage
+        // Usamos la ruta exacta que me pasaste en la imagen
+        const bridgeUrl = "https://storage.googleapis.com/home.ripley.com.pe/minisitios/App/index.html";
+        console.log(`📡 Validando en: ${bridgeUrl}`);
+        await page.goto(bridgeUrl, { waitUntil: 'networkidle2' });
 
-        // 2. Cargar Cookies antes de navegar
+        // 2. Inyectar Cookies corporativas
         if (process.env.MIS_COOKIES) {
             const rawCookie = process.env.MIS_COOKIES;
             const cookies = rawCookie.split(';').map(pair => {
@@ -48,30 +45,28 @@ async function start() {
             await page.setCookie(...cookies);
         }
 
-        // 3. Abrir la página (primera carga para establecer el dominio)
-        console.log('📡 Abriendo dominio...');
-        await page.goto('https://simple.ripley.com.pe/home', { waitUntil: 'domcontentloaded' });
+        // 3. Salto a la Home
+        console.log('🏠 Saltando a la Home con Referrer de confianza...');
+        await page.setExtraHTTPHeaders({ 'Referer': bridgeUrl });
+        await page.goto('https://simple.ripley.com.pe', { waitUntil: 'load', timeout: 90000 });
 
-        // 4. Inyectar Local Storage
-        if (process.env.MI_LOCAL_STORAGE) {
-            console.log('📦 Inyectando Local Storage...');
-            await page.evaluate((data) => {
-                const storage = JSON.parse(data);
-                for (let key in storage) { localStorage.setItem(key, storage[key]); }
-            }, process.env.MI_LOCAL_STORAGE);
-            // Recargar para que tome los cambios
-            await page.reload({ waitUntil: 'networkidle2' });
-        }
+        await new Promise(r => setTimeout(r, 20000)); // 20s para asegurar carga total
 
-        await new Promise(r => setTimeout(r, 15000));
-
-        const buffer = await page.screenshot({ fullPage: true, type: 'jpeg', quality: 75 });
-        await uploadToDrive(buffer, `Ripley_Clone_${new Date().getTime()}.jpg`);
+        const buffer = await page.screenshot({ fullPage: true, type: 'jpeg', quality: 70 });
+        
+        // Subir a Drive (usando tu función ya existente)
+        await uploadToDrive(buffer, `Ripley_Bridge_GCS_${new Date().getTime()}.jpg`);
 
     } catch (err) {
         console.error('❌ Fallo:', err.message);
         const errBuf = await page.screenshot({ type: 'jpeg' });
-        await uploadToDrive(errBuf, `CLONE_FAIL_${new Date().getTime()}.jpg`);
+        // Subir log de error a tu bucket para que lo veas en S3 Browser
+        const command = new PutObjectCommand({
+            Bucket: "home.ripley.com.pe",
+            Key: `debug/error_${new Date().getTime()}.jpg`,
+            Body: errBuf
+        });
+        await s3Client.send(command);
     } finally {
         await browser.close();
     }

@@ -1,9 +1,9 @@
-name: Ripley Daily Capture
+name: Ripley Daily Capture (GCS Bridge)
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 13 * * *' # Ejecución diaria
+    - cron: '0 13 * * *' # 8:00 AM hora Perú
 
 jobs:
   capture:
@@ -23,20 +23,28 @@ jobs:
           sudo apt-get install -y google-chrome-stable
 
       - name: Instalar dependencias
-        run: npm install
+        # Instalamos el cliente de S3 para Node que es compatible con tu GCS
+        run: |
+          npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth googleapis @aws-sdk/client-s3
 
-      - name: Ejecutar Captura Clonada
-        # xvfb-run es OBLIGATORIO para que Puppeteer "dibuje" la página y resuelva
-        # los retos de Cloudflare que viste en tus errores anteriores.
+      - name: Ejecutar Captura vía Puente Corporativo
         env:
+          # Credenciales de Google Drive
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
           FOLDER_ID: ${{ secrets.FOLDER_ID }}
-          # Los dos Secrets clave que obtuviste en la oficina:
-          MIS_COOKIES: ${{ secrets.MIS_COOKIES }}
-          MI_LOCAL_STORAGE: ${{ secrets.MI_LOCAL_STORAGE }}
+          
+          # Cookies obtenidas de Brave en la oficina
+          MIS_COOKIES: ${{ secrets.MIS_COOKIES }} #
+          
+          # Credenciales de S3 Browser (GCS)
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }} #
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }} #
+          AWS_BUCKET_NAME: "home.ripley.com.pe" #
+          AWS_REGION: "auto"
+        
+        # Usamos xvfb-run para simular el monitor y evitar el bloqueo de Cloudflare
         run: |
-          # Aumentamos la memoria compartida para evitar que Chrome se cierre en páginas pesadas como Ripley
           export SHM_SIZE=2gb
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" node index.js
