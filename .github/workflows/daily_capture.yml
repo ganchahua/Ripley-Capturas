@@ -1,29 +1,32 @@
 name: Ripley Daily Capture
 on:
+  workflow_dispatch: # Ejecutar manualmente para pruebas
   schedule:
-    # 08:00 AM Perú es 13:00 UTC (8 + 5 = 13)
-    - cron: '0 13 * * *'
-  workflow_dispatch: # Esto permite ejecutarlo manualmente para probar
+    - cron: '0 13 * * *' # Todos los días a las 8AM Lima
 
 jobs:
   capture:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout del codigo
+      - name: Checkout código
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm' # Acelera las subidas
 
       - name: Instalar dependencias
         run: npm install
 
-      - name: Ejecutar script de captura
+      # NUEVO PASO: Instalar y configurar el framebuffer virtual (xvfb)
+      - name: Ejecutar script con Xvfb (Anti-Bot)
         env:
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
           FOLDER_ID: ${{ secrets.FOLDER_ID }}
-        run: node index.js
+        # Corremos el script dentro de xvfb-run
+        run: xvfb-run --server-args="-screen 0 1920x1080x24" node index.js
+        timeout-minutes: 10 # Ripley es pesada, le damos tiempo
