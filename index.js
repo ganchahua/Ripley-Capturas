@@ -12,39 +12,32 @@ async function uploadToDrive(buffer, fileName) {
             requestBody: { name: fileName, parents: [process.env.FOLDER_ID] },
             media: { mimeType: 'image/jpeg', body: bufferStream }
         });
-        console.log('✅ ¡Archivo enviado a Drive!');
+        console.log('✅ Captura de CATEGORÍA guardada en Drive.');
     } catch (e) { console.error('❌ Error Drive:', e.message); }
 }
 
 async function start() {
-    console.log('🕵️ Iniciando infiltración silenciosa...');
+    console.log('🧪 Probando captura en zona de menor seguridad (Laptops)...');
     
-    const targetUrl = 'https://simple.ripley.com.pe/';
+    // Cambiamos el objetivo a una categoría
+    const targetUrl = 'https://simple.ripley.com.pe/tecnologia/computacion/laptops';
     const token = process.env.SCRAPEDO_TOKEN;
     
-    // CAMBIO DE ESTRATEGIA:
-    // Quitamos 'render=true' para evitar que salte el motor de detección de JS de Cloudflare
-    // Usamos 'superProxy' para que la IP sea 100% de hogar peruano o regional.
-    const apiUrl = `https://api.scrape.do/?token=${token}&url=${targetUrl}&screenshot=true&superProxy=true&returnJSON=true`;
+    // Volvemos a los parámetros básicos que funcionan con screenshot
+    const apiUrl = `https://api.scrape.do/?token=${token}&url=${targetUrl}&screenshot=true&render=true&returnJSON=true&wait=5000`;
 
     try {
-        console.log('📡 Solicitando captura sin renderizado de JS activo...');
-        const initRes = await axios.get(apiUrl, { timeout: 120000 });
-        
+        const initRes = await axios.get(apiUrl, { timeout: 150000 });
         const screenshotUrl = initRes.data.screenshotResult;
         
         if (screenshotUrl) {
-            console.log('🖼️ Captura generada. Descargando...');
             const finalRes = await axios.get(screenshotUrl, { responseType: 'arraybuffer' });
-            const fileName = `Ripley_Home_Silent_${new Date().getTime()}.jpg`;
-            await uploadToDrive(Buffer.from(finalRes.data), fileName);
+            await uploadToDrive(Buffer.from(finalRes.data), `RIPLEY_LAPTOPS_TEST.jpg`);
         } else {
-            console.error('❌ Cloudflare detectó el intento. Respuesta:', JSON.stringify(initRes.data).substring(0, 150));
+            console.error('❌ Incluso la categoría falló. Detalle:', JSON.stringify(initRes.data));
         }
-        
     } catch (error) {
-        console.error('❌ Fallo en la conexión:', error.message);
+        console.error('❌ Error crítico:', error.message);
     }
 }
-
 start();
