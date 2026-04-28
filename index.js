@@ -12,36 +12,41 @@ async function uploadToDrive(buffer, fileName) {
             requestBody: { name: fileName, parents: [process.env.FOLDER_ID] },
             media: { mimeType: 'image/jpeg', body: bufferStream }
         });
-        console.log('✅ Archivo enviado a Drive.');
+        console.log('✅ ¡Archivo enviado a Drive exitosamente!');
     } catch (e) { console.error('❌ Error Drive:', e.message); }
 }
 
 async function start() {
-    console.log('🌐 Iniciando captura mediante Proxy...');
+    console.log('🌐 Iniciando captura mediante Proxy (Modo JSON)...');
     
     const targetUrl = 'https://simple.ripley.com.pe/home';
     const token = process.env.SCRAPEDO_TOKEN;
     
-    // Cambiamos a la URL de parámetros para mayor compatibilidad
-    // Añadimos &screenshot=true para que la API misma tome la foto
-    const apiUrl = `https://api.scrape.do/?token=${token}&url=${targetUrl}&screenshot=true&render=true`;
+    // Añadimos &returnJSON=true como pide el error
+    const apiUrl = `https://api.scrape.do/?token=${token}&url=${targetUrl}&screenshot=true&render=true&returnJSON=true`;
 
     try {
-        console.log('📸 Solicitando captura...');
-        const response = await axios.get(apiUrl, { 
-            responseType: 'arraybuffer',
-            timeout: 120000 // Damos 2 minutos porque Ripley es pesada
-        });
+        console.log('📡 Solicitando enlace de captura...');
+        const initRes = await axios.get(apiUrl);
         
-        const fileName = `RIPLEY_HOME_FINAL_${new Date().getTime()}.jpg`;
-        await uploadToDrive(Buffer.from(response.data), fileName);
+        // El link de la imagen viene en initRes.data.screenshotResult
+        const screenshotUrl = initRes.data.screenshotResult;
+        
+        if (screenshotUrl) {
+            console.log('🖼️ Descargando imagen desde:', screenshotUrl);
+            const finalRes = await axios.get(screenshotUrl, { responseType: 'arraybuffer' });
+            
+            const fileName = `RIPLEY_HOME_SOLVED_${new Date().getTime()}.jpg`;
+            await uploadToDrive(Buffer.from(finalRes.data), fileName);
+        } else {
+            console.error('❌ No se encontró el link de la captura en la respuesta.');
+        }
         
     } catch (error) {
         if (error.response) {
-            // Esto nos dirá por qué Scrape.do nos da 403
-            console.error('❌ Error 403 Detalle:', error.response.data.toString());
+            console.error('❌ Error Detalle:', error.response.data);
         } else {
-            console.error('❌ Error:', error.message);
+            console.error('❌ Error de conexión:', error.message);
         }
     }
 }
