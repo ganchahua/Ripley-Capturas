@@ -1,34 +1,34 @@
 name: Ripley Daily Capture
 
 on:
-  workflow_dispatch: # ESTO es lo que activa el botón gris de "Run workflow"
+  workflow_dispatch: # Activa el botón gris "Run workflow"
   schedule:
-    - cron: '0 13 * * *' # 8:00 AM hora de Lima
+    - cron: '0 13 * * *' # 8:00 AM hora de Lima aproximadamente
 
 jobs:
   capture:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout código
+      - name: Checkout del repositorio
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Instalación de Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Instalar Chrome y dependencias
+      - name: Instalación de Chrome y Xvfb (Servidor Gráfico Virtual)
         run: |
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable xvfb
           npm install
 
-      - name: Ejecutar script con Xvfb (Anti-Bot)
+      - name: Ejecución de Captura con Pantalla Virtual
         env:
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
           FOLDER_ID: ${{ secrets.FOLDER_ID }}
           MIS_COOKIES: ${{ secrets.MIS_COOKIES }}
-        # --auto-servernum es clave para que no falle el inicio del navegador
+        # --auto-servernum evita conflictos si hay otros procesos gráficos
         run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" node index.js
