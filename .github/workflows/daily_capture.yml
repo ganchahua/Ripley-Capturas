@@ -1,7 +1,27 @@
-- name: Instalar Chrome y Xvfb
+name: Ripley Daily Capture
+
+on:
+  workflow_dispatch: # ESTO es lo que activa el botón gris de "Run workflow"
+  schedule:
+    - cron: '0 13 * * *' # 8:00 AM hora de Lima
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar Chrome y dependencias
         run: |
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable xvfb
+          npm install
 
       - name: Ejecutar script con Xvfb (Anti-Bot)
         env:
@@ -10,5 +30,5 @@
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
           FOLDER_ID: ${{ secrets.FOLDER_ID }}
           MIS_COOKIES: ${{ secrets.MIS_COOKIES }}
-        # Usamos --auto-servernum para evitar conflictos de pantalla
+        # --auto-servernum es clave para que no falle el inicio del navegador
         run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" node index.js
