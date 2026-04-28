@@ -1,26 +1,8 @@
-name: Ripley Daily Capture
-on:
-  workflow_dispatch: # Ejecutar manualmente para pruebas
-  schedule:
-    - cron: '0 13 * * *' # Todos los días a las 8AM Lima
+- name: Instalar Chrome y Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable xvfb
 
-jobs:
-  capture:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm' # Acelera las subidas
-
-      - name: Instalar dependencias
-        run: npm install
-
-      # NUEVO PASO: Instalar y configurar el framebuffer virtual (xvfb)
       - name: Ejecutar script con Xvfb (Anti-Bot)
         env:
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
@@ -28,6 +10,5 @@ jobs:
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
           FOLDER_ID: ${{ secrets.FOLDER_ID }}
           MIS_COOKIES: ${{ secrets.MIS_COOKIES }}
-        # Corremos el script dentro de xvfb-run
-        run: xvfb-run --server-args="-screen 0 1920x1080x24" node index.js
-        timeout-minutes: 10 # Ripley es pesada, le damos tiempo
+        # Usamos --auto-servernum para evitar conflictos de pantalla
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" node index.js

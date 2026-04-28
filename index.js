@@ -22,17 +22,17 @@ async function start() {
     console.log('🚀 Iniciando Puppeteer con Mimetismo Completo...');
     
     // TÉCNICA 1: Forzar una firma de Windows y limpiar rastro de automatización
-    const browser = await puppeteer.launch({ 
-        headless: false, // Seguimos con Xvfb activado en el .yml
+const browser = await puppeteer.launch({ 
+        headless: false, 
+        executablePath: '/usr/bin/google-chrome', // Forzamos la ruta en el runner de GitHub
+        timeout: 60000, // Le damos 60 segundos para abrir (el doble)
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
+            '--disable-dev-shm-usage', // Crítico para evitar que Chrome se quede sin memoria en Docker
+            '--disable-gpu', // En servidores sin tarjeta de video real ayuda mucho
             '--window-size=1920,1080',
-            // --- NUEVOS ARGUMENTOS DE SIGILO ---
-            '--disable-blink-features=AutomationControlled', // Esencial
-            '--disable-infobars', // Quita el mensaje "Chrome is being controlled"
-            '--lang=es-PE,es;q=0.9', // Forzamos idioma local
+            '--disable-blink-features=AutomationControlled'
         ] 
     });
 
